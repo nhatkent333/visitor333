@@ -1,0 +1,51 @@
+name: Headless Chrome Visitor
+
+# chạy theo lịch (cron uses UTC); */5 = every 5 minutes
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  visit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install requirements
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Playwright browsers
+        run: |
+          playwright install --with-deps
+
+      - name: Ensure scripts dir exists
+        run: mkdir -p ./tmp_screenshots || true
+
+      - name: Run visit script
+        env:
+          TARGET_URL: ${{ secrets.TARGET_URL }}   # recommend set as secret; or replace by plain URL
+        run: |
+          python scripts/visit.py
+
+      - name: Upload screenshot artifact (optional)
+        uses: actions/upload-artifact@v4
+        with:
+          name: visit-screenshots
+          path: tmp_screenshots/*.png
